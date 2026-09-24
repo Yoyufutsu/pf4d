@@ -102,6 +102,20 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 .range-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .range-row input{font-family:var(--mono);font-size:15px;width:6em;padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink)}
 .danger{color:var(--bad)}
+/* keypad */
+.pad{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;touch-action:manipulation;user-select:none;-webkit-user-select:none}
+.pad button{font-family:var(--mono);font-size:24px;font-weight:500;height:56px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);cursor:pointer;-webkit-tap-highlight-color:transparent}
+.pad button:active{background:var(--sunk);transform:translateY(1px)}
+.pad .fn{background:var(--sunk);color:var(--muted);font-size:20px}
+.pad [data-k="clr"]{font-family:var(--sans);font-size:14px}
+.pad .go{grid-column:span 2;background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-family:var(--sans);font-size:17px;font-weight:700}
+.pad .go:active{background:var(--accent);filter:brightness(.92)}
+/* キーパッド使用時: 結果欄の高さを確保してキーの位置がずれないように */
+.padmode .fb{display:grid;min-height:104px;align-content:center}
+.padmode .fb:not(.show){background:transparent}
+.padmode .help,.padmode #submit{display:none}
+.padmode .num{font-size:clamp(64px,19vw,128px);padding-block:4px 0}
+.padmode .stage{gap:12px;padding:16px}
 @media (prefers-reduced-motion:no-preference){.num.pop{animation:pop .18s ease-out}}
 @keyframes pop{from{transform:scale(.96);opacity:.4}to{transform:none;opacity:1}}
 </style>
@@ -140,6 +154,7 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
       </div>
       <div id="hint" class="hint-text"></div>
       <div id="fb" class="fb"></div>
+      <div id="pad" class="pad" hidden></div>
       <p class="help">因数は空白・<span class="kbd">*</span>・<span class="kbd">x</span>・<span class="kbd">,</span> で区切り、累乗は <span class="kbd">^</span>。素数なら <span class="kbd">p</span>。<span class="kbd">Enter</span> で回答 → 次へ。</p>
     </div>
     <div class="stats">
@@ -190,6 +205,21 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
         </div>
       </div>
       <div>
+        <h2>画面キーパッド</h2>
+        <p>「自動」ではスマホ・タブレットのときだけ表示し、端末のキーボードは出しません。</p>
+        <div class="range-row" style="margin-top:10px">
+          <select id="padSel" style="font:inherit;font-size:14px;padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink)">
+            <option value="auto">自動</option>
+            <option value="on">常に表示</option>
+            <option value="off">表示しない</option>
+          </select>
+          <select id="padLayout" style="font:inherit;font-size:14px;padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink)">
+            <option value="phone">1 2 3 が上（電話型）</option>
+            <option value="calc">7 8 9 が上（電卓型）</option>
+          </select>
+        </div>
+      </div>
+      <div>
         <h2>記録</h2>
         <p>記録はこのブラウザにだけ保存されます。</p>
         <div style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
@@ -232,7 +262,7 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
   // ---------- state ----------
   const KEY = 'pf4-trainer-v1';
   const today = () => new Date().toISOString().slice(0, 10);
-  const fresh = () => ({ v: 2, w: Object.fromEntries(Object.entries(CATS).map(([k, v]) => [k, v.def])), lo: 1000, hi: 9999, mode: 'auto', st: {}, day: { d: today(), n: 0, ok: 0 } });
+  const fresh = () => ({ v: 2, pad: 'auto', padLayout: 'phone', w: Object.fromEntries(Object.entries(CATS).map(([k, v]) => [k, v.def])), lo: 1000, hi: 9999, mode: 'auto', st: {}, day: { d: today(), n: 0, ok: 0 } });
   let S = fresh();
   try {
     const raw = localStorage.getItem(KEY);
@@ -278,6 +308,7 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
     const p = pick();
     fb.className = 'fb'; fb.innerHTML = ''; hintEl.textContent = '';
     ans.value = ''; ans.disabled = false;
+    $('submit').textContent = $('padEnter').textContent = '答える';
     ['submit', 'primeBtn', 'hintBtn', 'giveupBtn'].forEach(id => $(id).disabled = false);
     if (!p) {
       cur = null; numEl.textContent = '----'; $('retryTag').hidden = true;
@@ -349,9 +380,10 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
     const catLbl = CATS[CAT[n]].label;
     fb.className = 'fb show ' + (ok ? 'ok' : 'bad');
     const verdict = !ok ? '不正解' : cur.hint ? '正解（ヒントあり）' : fast ? '正解 · 即答' : `正解 · ${FAST}秒超なので計算扱い`;
-    fb.innerHTML = `<span class="sub">${verdict}${extra ? '（' + extra + '）' : ''} · ${sec.toFixed(1)}秒</span><span class="eq">${eq}</span><span class="sub">${catLbl} · <span class="kbd">Enter</span> で次へ</span>`;
+    fb.innerHTML = `<span class="sub">${verdict}${extra ? '（' + extra + '）' : ''} · ${sec.toFixed(1)}秒</span><span class="eq">${eq}</span><span class="sub">${catLbl}${document.body.classList.contains('padmode') ? '' : ' · <span class="kbd">Enter</span> で次へ'}</span>`;
     ['primeBtn', 'hintBtn', 'giveupBtn'].forEach(id => $(id).disabled = true);
-    $('submit').focus();
+    $('submit').textContent = $('padEnter').textContent = '次へ';
+    if (!document.body.classList.contains('padmode')) $('submit').focus();
     renderStats();
   }
 
@@ -450,6 +482,45 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
     if (b.dataset.panel === 'list') renderList();
     if (b.dataset.panel === 'practice') { if (!cur || cur.done === false) ans.focus(); if (cur === null) next(); }
     if (b.dataset.panel !== 'settings') { armed = false; $('reset').textContent = '記録をリセット'; $('resetMsg').textContent = ''; }
+  });
+
+  // ---------- keypad ----------
+  function buildPad() {
+    const rows = S.padLayout === 'calc' ? ['789', '456', '123'] : ['123', '456', '789'];
+    const fn = ['<button data-k="bs" class="fn" aria-label="1文字消す">⌫</button>', '<button data-k="x" class="fn">×</button>', '<button data-k="^" class="fn">^</button>'];
+    const label = cur && cur.done ? '次へ' : '答える';
+    $('pad').innerHTML = rows.map((r, i) => [...r].map(d => `<button data-k="${d}">${d}</button>`).join('') + fn[i]).join('') +
+      `<button data-k="clr" class="fn">クリア</button><button data-k="0">0</button><button data-k="enter" id="padEnter" class="go">${label}</button>`;
+  }
+  buildPad();
+  $('padLayout').value = S.padLayout;
+  $('padLayout').onchange = e => { S.padLayout = e.target.value; save(); buildPad(); };
+
+  const touchMQ = window.matchMedia('(hover: none) and (pointer: coarse)');
+  function applyPad() {
+    const on = S.pad === 'on' || (S.pad === 'auto' && touchMQ.matches);
+    $('pad').hidden = !on;
+    document.body.classList.toggle('padmode', on);
+    // キーパッド使用中は端末のキーボードを出さない（物理キーボードの入力は効く）
+    ans.setAttribute('inputmode', on ? 'none' : 'text');
+  }
+  $('padSel').value = S.pad;
+  $('padSel').onchange = e => { S.pad = e.target.value; save(); applyPad(); };
+  touchMQ.addEventListener && touchMQ.addEventListener('change', applyPad);
+  applyPad();
+
+  $('pad').addEventListener('pointerdown', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    e.preventDefault();  // 入力欄のフォーカスを奪わない・ダブルタップズームを防ぐ
+    const k = b.dataset.k; let v = ans.value;
+    if (k === 'enter') { submit(v); return; }
+    if (cur && cur.done) return;
+    if (k === 'bs') v = / × $/.test(v) ? v.slice(0, -3) : v.slice(0, -1);
+    else if (k === 'clr') v = '';
+    else if (k === 'x') { if (v && !/ × $/.test(v) && !/\^$/.test(v)) v += ' × '; }
+    else if (k === '^') { if (/\d$/.test(v)) v += '^'; }
+    else v += k;
+    ans.value = v;
   });
 
   renderStats();
