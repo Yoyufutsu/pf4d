@@ -1,0 +1,458 @@
+<title>4桁素因数トレーナー</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+JP:wght@400;500;700&display=swap">
+<style>
+:root{
+  --bg:#EEF1F4; --surface:#FFFFFF; --sunk:#E3E8ED; --ink:#15202B; --muted:#5F6B78; --line:#D3DAE1;
+  --accent:#2B55D9; --accent-ink:#FFFFFF; --accent-soft:#DCE4FB;
+  --ok:#1C7F52; --ok-soft:#D6EFE2; --bad:#B8402A; --bad-soft:#F6DDD6; --mid:#9A6A09; --mid-soft:#F4E8C8;
+  --mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+  --sans:"IBM Plex Sans JP","Hiragino Sans","Yu Gothic UI","Meiryo",system-ui,sans-serif;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#0E1318; --surface:#161D25; --sunk:#1E2731; --ink:#E4EAF0; --muted:#8C99A7; --line:#2A3541;
+    --accent:#7E9CFF; --accent-ink:#0E1318; --accent-soft:#232E4E;
+    --ok:#5BC894; --ok-soft:#173327; --bad:#F08A73; --bad-soft:#3A201A; --mid:#E0B354; --mid-soft:#352B14;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#0E1318; --surface:#161D25; --sunk:#1E2731; --ink:#E4EAF0; --muted:#8C99A7; --line:#2A3541;
+  --accent:#7E9CFF; --accent-ink:#0E1318; --accent-soft:#232E4E;
+  --ok:#5BC894; --ok-soft:#173327; --bad:#F08A73; --bad-soft:#3A201A; --mid:#E0B354; --mid-soft:#352B14;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.6;margin:0}
+.wrap{max-width:780px;margin:0 auto;padding-inline:16px;padding-block:20px 48px}
+header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:20px}
+h1{font-size:18px;font-weight:700;margin:0;letter-spacing:.02em}
+h1 span{font-family:var(--mono);color:var(--accent);font-weight:600;margin-right:6px}
+nav{display:flex;gap:4px;background:var(--sunk);padding:4px;border-radius:10px}
+nav button{border:0;background:transparent;color:var(--muted);font:inherit;font-size:14px;padding:6px 14px;border-radius:7px;cursor:pointer}
+nav button[aria-selected="true"]{background:var(--surface);color:var(--ink);font-weight:500;box-shadow:0 1px 2px rgba(0,0,0,.08)}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* practice */
+.stage{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:20px 20px 24px;display:grid;gap:18px}
+.stage-top{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+.stage-top select{font:inherit;font-size:13px;background:var(--sunk);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:3px 6px}
+.tag{font-size:12px;padding:1px 8px;border-radius:99px;background:var(--mid-soft);color:var(--mid)}
+.num{font-family:var(--mono);font-weight:600;font-size:clamp(72px,20vw,128px);line-height:1;text-align:center;letter-spacing:.04em;font-variant-numeric:tabular-nums;padding-block:12px 4px}
+.answer-row{display:flex;gap:8px}
+.answer-row input{flex:1;min-width:0;font-family:var(--mono);font-size:20px;padding:10px 14px;border:1.5px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink)}
+.answer-row input:focus{border-color:var(--accent);outline:none}
+.btn{font:inherit;font-size:14px;border-radius:9px;padding:9px 16px;cursor:pointer;border:1px solid var(--line);background:var(--surface);color:var(--ink);white-space:nowrap}
+.btn:hover{background:var(--sunk)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:500}
+.btn.primary:hover{filter:brightness(1.08)}
+.btn:disabled{opacity:.45;cursor:default}
+.aux{display:flex;gap:8px;flex-wrap:wrap}
+.aux .btn{padding:6px 12px;font-size:13px}
+.hint-text{font-size:13px;color:var(--muted);min-height:1.6em}
+.fb{border-radius:10px;padding:12px 16px;display:none;gap:4px}
+.fb.show{display:grid}
+.fb.ok{background:var(--ok-soft);color:var(--ok)}
+.fb.bad{background:var(--bad-soft);color:var(--bad)}
+.fb.note{background:var(--mid-soft);color:var(--mid)}
+.fb .eq{font-family:var(--mono);font-size:20px;font-weight:600;color:var(--ink)}
+.fb .sub{font-size:13px}
+.kbd{font-family:var(--mono);font-size:12px;border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:0 5px;background:var(--surface);color:var(--muted)}
+.help{font-size:13px;color:var(--muted);margin:0}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line);border:1px solid var(--line);border-radius:12px;overflow:hidden;margin-top:16px}
+.stats div{background:var(--surface);padding:10px 14px}
+.stats b{display:block;font-family:var(--mono);font-size:20px;font-weight:600;font-variant-numeric:tabular-nums}
+.stats small{font-size:12px;color:var(--muted)}
+@media (max-width:520px){.stats{grid-template-columns:repeat(2,1fr)}}
+
+/* list */
+.toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.toolbar select,.toolbar input[type=search]{font:inherit;font-size:14px;padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink)}
+.toolbar input[type=search]{font-family:var(--mono);width:9em}
+.toolbar label{font-size:13px;color:var(--muted);display:flex;align-items:center;gap:6px}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-bottom:14px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+.group h3{font-family:var(--mono);font-size:13px;font-weight:500;color:var(--muted);margin:18px 0 8px;display:flex;gap:10px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(128px,1fr));gap:6px}
+.chip{border:1px solid var(--line);border-radius:8px;padding:6px 10px;background:var(--surface);font-family:var(--mono);cursor:default;text-align:left;color:var(--ink);font-size:14px}
+.chip .n{font-weight:600;font-variant-numeric:tabular-nums}
+.chip .t{float:right;font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+.chip .f{display:block;font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chip.s-bad{background:var(--bad-soft);border-color:transparent}
+.chip.s-mid{background:var(--mid-soft);border-color:transparent}
+.chip.s-good{background:var(--ok-soft);border-color:transparent}
+.hide-ans .chip{cursor:pointer}
+.hide-ans .chip:not(.open) .f{color:transparent;background:var(--sunk);border-radius:3px}
+.empty{color:var(--muted);font-size:14px;padding:20px 0}
+
+/* settings */
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:20px;display:grid;gap:22px}
+.panel h2{font-size:15px;margin:0 0 4px}
+.panel p{margin:0;font-size:13px;color:var(--muted)}
+.wrow{display:grid;grid-template-columns:1fr 150px 3.2em;gap:12px;align-items:center;padding-block:8px;border-top:1px solid var(--line)}
+.wrow:first-of-type{border-top:0}
+.wrow .lbl{font-size:14px}
+.wrow .lbl small{display:block;color:var(--muted);font-size:12px;font-family:var(--mono)}
+.wrow input[type=range]{width:100%;accent-color:var(--accent)}
+.wrow output{font-family:var(--mono);text-align:right;font-variant-numeric:tabular-nums}
+@media (max-width:480px){.wrow{grid-template-columns:1fr 3.2em}.wrow input[type=range]{grid-column:1/-1;grid-row:2}}
+.range-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.range-row input{font-family:var(--mono);font-size:15px;width:6em;padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink)}
+.danger{color:var(--bad)}
+@media (prefers-reduced-motion:no-preference){.num.pop{animation:pop .18s ease-out}}
+@keyframes pop{from{transform:scale(.96);opacity:.4}to{transform:none;opacity:1}}
+</style>
+
+<div class="wrap">
+  <header>
+    <h1><span>n = p·q</span>4桁素因数トレーナー</h1>
+    <nav role="tablist">
+      <button role="tab" id="tab-practice" aria-selected="true" data-panel="practice">練習</button>
+      <button role="tab" id="tab-list" aria-selected="false" data-panel="list">一覧</button>
+      <button role="tab" id="tab-settings" aria-selected="false" data-panel="settings">設定</button>
+    </nav>
+  </header>
+
+  <section id="practice">
+    <div class="stage">
+      <div class="stage-top">
+        <span>出題
+          <select id="mode">
+            <option value="auto">おまかせ（苦手・未出題を優先）</option>
+            <option value="new">未出題だけ</option>
+            <option value="weak">間違えたものだけ</option>
+          </select>
+        </span>
+        <span id="retryTag" class="tag" hidden>復習</span>
+      </div>
+      <div id="num" class="num">----</div>
+      <div class="answer-row">
+        <input id="ans" autocomplete="off" spellcheck="false" placeholder="例: 31 37 ／ 2^3 11 13">
+        <button id="submit" class="btn primary">答える</button>
+      </div>
+      <div class="aux">
+        <button id="primeBtn" class="btn">素数</button>
+        <button id="hintBtn" class="btn">ヒント</button>
+        <button id="giveupBtn" class="btn">わからない</button>
+      </div>
+      <div id="hint" class="hint-text"></div>
+      <div id="fb" class="fb"></div>
+      <p class="help">因数は空白・<span class="kbd">*</span>・<span class="kbd">x</span>・<span class="kbd">,</span> で区切り、累乗は <span class="kbd">^</span>。素数なら <span class="kbd">p</span>。<span class="kbd">Enter</span> で回答 → 次へ。</p>
+    </div>
+    <div class="stats">
+      <div><small>今日の回答</small><b id="stToday">0</b></div>
+      <div><small>今日の正答率</small><b id="stRate">–</b></div>
+      <div><small id="stCoreLbl">習得</small><b id="stCore">0</b></div>
+      <div><small>苦手</small><b id="stWeak">0</b></div>
+    </div>
+  </section>
+
+  <section id="list" hidden>
+    <div class="toolbar">
+      <select id="lfilter">
+        <option value="hard">2·3·5·7を含まない合成数</option>
+        <option value="prime">素数</option>
+        <option value="mixed">2·3·5·7 と 11以上が混在</option>
+        <option value="smooth">2·3·5·7 だけ</option>
+        <option value="weak">苦手（直近で間違えた）</option>
+      </select>
+      <input id="lsearch" type="search" inputmode="numeric" placeholder="数で絞る">
+      <label><input id="lhide" type="checkbox"> 答えを隠す（クリックで表示）</label>
+    </div>
+    <div class="legend">
+      <span><i style="background:var(--surface);border:1px solid var(--line)"></i>未出題</span>
+      <span><i style="background:var(--bad-soft)"></i>直近で間違い</span>
+      <span><i style="background:var(--mid-soft)"></i>練習中</span>
+      <span><i style="background:var(--ok-soft)"></i>習得（5秒以内の正解を重ねた）</span>
+      <span>右上の秒数 = 直近の正解時間</span>
+    </div>
+    <div id="lbody"></div>
+  </section>
+
+  <section id="settings" hidden>
+    <div class="panel">
+      <div>
+        <h2>出題の重み</h2>
+        <p>種類ごとの出やすさ。0 にすると出題しません。2·3·5·7 だけでできている数は暗算で割れるので低めにしています。</p>
+        <div id="weights" style="margin-top:10px"></div>
+      </div>
+      <div>
+        <h2>出題範囲</h2>
+        <p>一度に覚える範囲を区切りたいときに。</p>
+        <div class="range-row" style="margin-top:10px">
+          <input id="lo" type="number" min="1000" max="9999" inputmode="numeric"> 〜
+          <input id="hi" type="number" min="1000" max="9999" inputmode="numeric">
+          <button id="range1k" class="btn" style="padding:6px 12px;font-size:13px">1000台ずつ次へ</button>
+          <button id="rangeAll" class="btn" style="padding:6px 12px;font-size:13px">全範囲</button>
+        </div>
+      </div>
+      <div>
+        <h2>記録</h2>
+        <p>記録はこのブラウザにだけ保存されます。</p>
+        <div style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <button id="reset" class="btn danger">記録をリセット</button>
+          <span id="resetMsg" style="font-size:13px;color:var(--muted)"></span>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+(() => {
+  // ---------- math ----------
+  const spf = new Uint16Array(10000);
+  for (let i = 2; i < 10000; i++) if (!spf[i]) for (let j = i; j < 10000; j += i) if (!spf[j]) spf[j] = i;
+  const isPrime = n => n > 1 && spf[n] === n;
+  const factor = n => { const f = []; while (n > 1) { const p = spf[n]; f.push(p); n /= p; } return f; };
+  const SUP = {0:'⁰',1:'¹',2:'²',3:'³',4:'⁴',5:'⁵',6:'⁶',7:'⁷',8:'⁸',9:'⁹'};
+  const fmt = f => {
+    const g = [];
+    for (const p of f) { const l = g[g.length - 1]; if (l && l[0] === p) l[1]++; else g.push([p, 1]); }
+    return g.map(([p, e]) => e > 1 ? p + String(e).replace(/\d/g, d => SUP[d]) : String(p)).join(' × ');
+  };
+  const catOf = n => {
+    const f = factor(n);
+    if (f.length === 1) return 'prime';
+    const small = f.some(p => p <= 7), big = f.some(p => p > 7);
+    return !small ? 'hard' : big ? 'mixed' : 'smooth';
+  };
+  const CAT = new Array(10000), FAC = new Array(10000);
+  for (let n = 1000; n <= 9999; n++) { CAT[n] = catOf(n); FAC[n] = factor(n); }
+  const CATS = {
+    hard:   { label: '2·3·5·7を含まない合成数', ex: '1147 = 31 × 37', def: 10 },
+    prime:  { label: '素数', ex: '1009', def: 0 },
+    mixed:  { label: '2·3·5·7 と 11以上が混在', ex: '2002 = 2 × 7 × 11 × 13', def: 2 },
+    smooth: { label: '2·3·5·7 だけ', ex: '2016 = 2⁵ × 3² × 7', def: 0.5 },
+  };
+
+  // ---------- state ----------
+  const KEY = 'pf4-trainer-v1';
+  const today = () => new Date().toISOString().slice(0, 10);
+  const fresh = () => ({ v: 2, w: Object.fromEntries(Object.entries(CATS).map(([k, v]) => [k, v.def])), lo: 1000, hi: 9999, mode: 'auto', st: {}, day: { d: today(), n: 0, ok: 0 } });
+  let S = fresh();
+  try {
+    const raw = localStorage.getItem(KEY);
+    if (raw) {
+      const saved = JSON.parse(raw);
+      if (!saved.v && saved.w) { saved.w.prime = 0; saved.v = 2; }  // v2: 素数は既定で出題しない
+      S = Object.assign(fresh(), saved);
+    }
+  } catch (e) {}
+  if (S.day.d !== today()) S.day = { d: today(), n: 0, ok: 0 };
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} };
+
+  // box: 0=直近で間違い, 1-2=練習中, 3+=習得
+  const MULT = [4, 1.6, 0.8, 0.3, 0.12, 0.05];
+  const FAST = 5;  // この秒数以内の正解を「覚えている」とみなす
+  const status = n => { const s = S.st[n]; return !s ? 'new' : s.b === 0 ? 'bad' : s.b < 3 ? 'mid' : 'good'; };
+
+  // ---------- practice ----------
+  const $ = id => document.getElementById(id);
+  const numEl = $('num'), ans = $('ans'), fb = $('fb'), hintEl = $('hint');
+  let cur = null, qCount = 0, recent = [], retry = [];
+
+  function pick() {
+    const due = retry.findIndex(r => r.due <= qCount && r.n >= S.lo && r.n <= S.hi);
+    if (due >= 0) return { n: retry.splice(due, 1)[0].n, retry: true };
+    let total = 0; const cand = [], ws = [];
+    for (let n = S.lo; n <= S.hi; n++) {
+      const cw = S.w[CAT[n]]; if (!cw) continue;
+      if (recent.includes(n)) continue;
+      const s = S.st[n];
+      if (S.mode === 'new' && s) continue;
+      if (S.mode === 'weak' && !(s && s.b === 0)) continue;
+      const w = cw * (s ? MULT[s.b] : 1);
+      cand.push(n); ws.push(w); total += w;
+    }
+    if (!cand.length) return null;
+    let r = Math.random() * total;
+    for (let i = 0; i < cand.length; i++) { r -= ws[i]; if (r <= 0) return { n: cand[i], retry: false }; }
+    return { n: cand[cand.length - 1], retry: false };
+  }
+
+  function next() {
+    const p = pick();
+    fb.className = 'fb'; fb.innerHTML = ''; hintEl.textContent = '';
+    ans.value = ''; ans.disabled = false;
+    ['submit', 'primeBtn', 'hintBtn', 'giveupBtn'].forEach(id => $(id).disabled = false);
+    if (!p) {
+      cur = null; numEl.textContent = '----'; $('retryTag').hidden = true;
+      hintEl.textContent = S.mode === 'weak' ? '苦手な数はありません。' : S.mode === 'new' ? 'この範囲の数はすべて出題済みです。' : '出題できる数がありません。設定の重みと範囲を確認してください。';
+      ['submit', 'primeBtn', 'hintBtn', 'giveupBtn'].forEach(id => $(id).disabled = true);
+      return;
+    }
+    cur = { n: p.n, t0: performance.now(), hint: 0, done: false };
+    $('retryTag').hidden = !p.retry;
+    numEl.textContent = p.n;
+    numEl.classList.remove('pop'); void numEl.offsetWidth; numEl.classList.add('pop');
+    recent.push(p.n); if (recent.length > 12) recent.shift();
+    ans.focus();
+  }
+
+  function parse(raw) {
+    let s = raw.replace(/[⁰¹²³⁴⁵⁶⁷⁸⁹]+/g, m => '^' + [...m].map(c => '⁰¹²³⁴⁵⁶⁷⁸⁹'.indexOf(c)).join(''));
+    s = s.normalize('NFKC').trim().toLowerCase();
+    if (!s) return null;
+    if (/^(p|prime|素数|そすう)$/.test(s)) return { prime: true };
+    const toks = s.split(/[^0-9^]+/).filter(Boolean);
+    const f = [];
+    for (const t of toks) {
+      const m = t.match(/^(\d+)(?:\^(\d+))?$/); if (!m) return { bad: true };
+      const b = +m[1], e = m[2] ? +m[2] : 1;
+      if (b === 1) continue;
+      if (e > 20) return { bad: true };
+      for (let i = 0; i < e; i++) f.push(b);
+    }
+    return f.length ? { f } : { bad: true };
+  }
+
+  function submit(raw) {
+    if (!cur) return;
+    if (cur.done) { next(); return; }
+    const a = parse(raw); if (!a) return;
+    const n = cur.n, prime = isPrime(n);
+    if (a.bad) return note('読み取れませんでした。例: 31 37 / 2^3 11 13 / p');
+    if (a.prime || (a.f.length === 1 && a.f[0] === n)) return finish(prime);
+    const prod = a.f.reduce((x, y) => x * y, 1);
+    if (prod !== n) return finish(false, `入力の積は ${prod}`);
+    const comp = a.f.filter(x => !isPrime(x));
+    if (comp.length) return note(`${[...new Set(comp)].join(', ')} はまだ分解できます。`);
+    finish(true);
+  }
+
+  function note(msg) {
+    fb.className = 'fb show note'; fb.innerHTML = `<span class="sub">${msg}</span>`;
+    ans.select();
+  }
+
+  function finish(ok, extra) {
+    const n = cur.n, sec = (performance.now() - cur.t0) / 1000;
+    cur.done = true;
+    const s = S.st[n];
+    const fast = sec <= FAST;
+    let b;
+    if (!ok) b = 0;
+    else if (cur.hint) b = 1;
+    else if (fast) b = s ? Math.min(s.b + 1, MULT.length - 1) : 3;  // 即答 = 覚えている
+    else b = s ? Math.max(1, Math.min(s.b, 2)) : 1;                   // 遅い正解 = 計算で解いた → 習得扱いにしない
+    S.st[n] = { b, s: (s ? s.s : 0) + 1, c: (s ? s.c : 0) + (ok ? 1 : 0), t: ok ? +sec.toFixed(1) : null };
+    S.day.n++; if (ok) S.day.ok++;
+    if (!ok) { retry = retry.filter(r => r.n !== n); retry.push({ n, due: qCount + 5 }); }
+    qCount++;
+    save();
+
+    const eq = isPrime(n) ? `${n} は素数` : `${n} = ${fmt(FAC[n])}`;
+    const catLbl = CATS[CAT[n]].label;
+    fb.className = 'fb show ' + (ok ? 'ok' : 'bad');
+    const verdict = !ok ? '不正解' : cur.hint ? '正解（ヒントあり）' : fast ? '正解 · 即答' : `正解 · ${FAST}秒超なので計算扱い`;
+    fb.innerHTML = `<span class="sub">${verdict}${extra ? '（' + extra + '）' : ''} · ${sec.toFixed(1)}秒</span><span class="eq">${eq}</span><span class="sub">${catLbl} · <span class="kbd">Enter</span> で次へ</span>`;
+    ['primeBtn', 'hintBtn', 'giveupBtn'].forEach(id => $(id).disabled = true);
+    $('submit').focus();
+    renderStats();
+  }
+
+  function hint() {
+    if (!cur || cur.done) return;
+    const f = FAC[cur.n];
+    cur.hint++;
+    if (cur.hint === 1) hintEl.textContent = `素因数は（重複込みで）${f.length} 個`;
+    else if (cur.hint === 2 && f.length > 1) hintEl.textContent = `素因数は ${f.length} 個 · 最小の素因数は ${f[0]}`;
+    else hintEl.textContent = `素因数は ${f.length} 個` + (f.length > 1 ? ` · 最小の素因数は ${f[0]}` : '') + '（これ以上のヒントはありません）';
+    ans.focus();
+  }
+
+  $('submit').onclick = () => submit(ans.value);
+  $('primeBtn').onclick = () => submit('p');
+  $('hintBtn').onclick = hint;
+  $('giveupBtn').onclick = () => { if (cur && !cur.done) finish(false); };
+  ans.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); submit(ans.value); } });
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Enter' || e.target === ans || $('practice').hidden) return;
+    if (cur && cur.done && e.target.tagName !== 'SELECT') { e.preventDefault(); next(); }
+  });
+  $('mode').value = S.mode;
+  $('mode').onchange = e => { S.mode = e.target.value; save(); next(); };
+
+  function renderStats() {
+    $('stToday').textContent = S.day.n;
+    $('stRate').textContent = S.day.n ? Math.round(100 * S.day.ok / S.day.n) + '%' : '–';
+    let core = 0, got = 0, weak = 0;
+    for (let n = 1000; n <= 9999; n++) {
+      const c = CAT[n], st = status(n);
+      if (c === 'hard' || (c === 'prime' && S.w.prime > 0)) { core++; if (st === 'good') got++; }
+      if (st === 'bad') weak++;
+    }
+    $('stCore').textContent = `${got} / ${core}`;
+    $('stCoreLbl').textContent = S.w.prime > 0 ? '習得（重点2種）' : '習得（2·3·5·7なし合成数）';
+    $('primeBtn').hidden = !(S.w.prime > 0);
+    $('stWeak').textContent = weak;
+  }
+
+  // ---------- list ----------
+  function renderList() {
+    const fil = $('lfilter').value, q = $('lsearch').value.normalize('NFKC').replace(/\D/g, '');
+    const groups = {};
+    for (let n = 1000; n <= 9999; n++) {
+      if (fil === 'weak' ? status(n) !== 'bad' : CAT[n] !== fil) continue;
+      if (q && !String(n).startsWith(q)) continue;
+      (groups[Math.floor(n / 1000)] ||= []).push(n);
+    }
+    const keys = Object.keys(groups);
+    if (!keys.length) { $('lbody').innerHTML = '<div class="empty">該当する数はありません。</div>'; return; }
+    $('lbody').innerHTML = keys.map(k => {
+      const arr = groups[k];
+      const got = arr.filter(n => status(n) === 'good').length;
+      return `<div class="group"><h3><span>${k}000台</span><span>${arr.length}個 · 習得 ${got}</span></h3><div class="grid">` +
+        arr.map(n => { const t = S.st[n] && S.st[n].t; return `<button class="chip s-${status(n)}"><span class="n">${n}</span>${t != null ? `<span class="t">${t}s</span>` : ''}<span class="f">${isPrime(n) ? '素数' : fmt(FAC[n])}</span></button>`; }).join('') +
+        '</div></div>';
+    }).join('');
+  }
+  $('lfilter').onchange = renderList;
+  $('lsearch').oninput = renderList;
+  $('lhide').onchange = e => $('lbody').classList.toggle('hide-ans', e.target.checked);
+  $('lbody').onclick = e => { const c = e.target.closest('.chip'); if (c && $('lbody').classList.contains('hide-ans')) c.classList.toggle('open'); };
+
+  // ---------- settings ----------
+  const counts = { hard: 0, prime: 0, mixed: 0, smooth: 0 };
+  for (let n = 1000; n <= 9999; n++) counts[CAT[n]]++;
+  $('weights').innerHTML = Object.entries(CATS).map(([k, v]) =>
+    `<div class="wrow"><div class="lbl">${v.label}（${counts[k]}個）<small>${v.ex}</small></div>
+     <input type="range" id="w-${k}" min="0" max="10" step="0.5" value="${S.w[k]}"><output id="o-${k}">${S.w[k]}</output></div>`).join('');
+  Object.keys(CATS).forEach(k => $('w-' + k).oninput = e => { S.w[k] = +e.target.value; $('o-' + k).textContent = S.w[k]; save(); renderStats(); });
+
+  const syncRange = () => { $('lo').value = S.lo; $('hi').value = S.hi; };
+  const setRange = (lo, hi) => {
+    lo = Math.max(1000, Math.min(9999, lo | 0)); hi = Math.max(1000, Math.min(9999, hi | 0));
+    if (lo > hi) [lo, hi] = [hi, lo];
+    S.lo = lo; S.hi = hi; save(); syncRange();
+  };
+  syncRange();
+  $('lo').onchange = $('hi').onchange = () => setRange(+$('lo').value, +$('hi').value);
+  $('range1k').onclick = () => { const s = S.hi - S.lo === 999 && S.lo % 1000 === 0 ? (S.lo >= 9000 ? 1000 : S.lo + 1000) : 1000; setRange(s, s + 999); };
+  $('rangeAll').onclick = () => setRange(1000, 9999);
+
+  let armed = false;
+  $('reset').onclick = () => {
+    if (!armed) { armed = true; $('reset').textContent = 'もう一度押すとリセット'; $('resetMsg').textContent = '重みと範囲は残ります。'; return; }
+    S.st = {}; S.day = { d: today(), n: 0, ok: 0 }; retry = []; save();
+    armed = false; $('reset').textContent = '記録をリセット'; $('resetMsg').textContent = 'リセットしました。';
+    renderStats();
+  };
+
+  // ---------- tabs ----------
+  document.querySelectorAll('nav button').forEach(b => b.onclick = () => {
+    document.querySelectorAll('nav button').forEach(x => x.setAttribute('aria-selected', x === b));
+    ['practice', 'list', 'settings'].forEach(id => $(id).hidden = id !== b.dataset.panel);
+    if (b.dataset.panel === 'list') renderList();
+    if (b.dataset.panel === 'practice') { if (!cur || cur.done === false) ans.focus(); if (cur === null) next(); }
+    if (b.dataset.panel !== 'settings') { armed = false; $('reset').textContent = '記録をリセット'; $('resetMsg').textContent = ''; }
+  });
+
+  renderStats();
+  next();
+})();
+</script>
