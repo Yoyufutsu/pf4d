@@ -26,6 +26,7 @@
   --ok:#5BC894; --ok-soft:#173327; --bad:#F08A73; --bad-soft:#3A201A; --mid:#E0B354; --mid-soft:#352B14;
 }
 *{box-sizing:border-box}
+[hidden]{display:none!important}
 body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.6;margin:0}
 .wrap{max-width:780px;margin:0 auto;padding-inline:16px;padding-block:20px 48px}
 header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:20px}
@@ -217,6 +218,7 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
             <option value="phone">1 2 3 が上（電話型）</option>
             <option value="calc">7 8 9 が上（電卓型）</option>
           </select>
+          <span id="padDetect" style="font-size:13px;color:var(--muted)"></span>
         </div>
       </div>
       <div>
@@ -496,9 +498,27 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
   $('padLayout').value = S.padLayout;
   $('padLayout').onchange = e => { S.padLayout = e.target.value; save(); buildPad(); };
 
-  const touchMQ = window.matchMedia('(hover: none) and (pointer: coarse)');
+  // タッチ端末の判定。メディアクエリだけだと一部の Android（ペン対応機など）が
+  // 「マウスあり」と報告するので、UA と実際のタッチ操作も手がかりにする。
+  // タッチパネル付き PC は「マウス（タッチパッド）あり」なので除外する。
+  const touchMQ = window.matchMedia('(pointer: coarse)');
+  const fineMQ = window.matchMedia('(any-pointer: fine)');
+  const uaMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) ||
+    (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);  // iPadOS
+  let touchSeen = false;
+  const touchReason = () =>
+    uaMobile ? 'スマホ・タブレットのブラウザ' :
+    touchMQ.matches && !fineMQ.matches ? 'タッチ専用の端末' :
+    touchSeen && !fineMQ.matches ? '画面へのタッチ' : null;
+  const isTouch = () => !!touchReason();
+  document.addEventListener('pointerdown', e => {
+    if (e.pointerType === 'touch' && !touchSeen) { touchSeen = true; applyPad(); }
+  }, true);
   function applyPad() {
-    const on = S.pad === 'on' || (S.pad === 'auto' && touchMQ.matches);
+    const on = S.pad === 'on' || (S.pad === 'auto' && isTouch());
+    const r = touchReason();
+    $('padDetect').textContent = `この端末の判定: ${r ? 'タッチ端末（' + r + '）' : 'PC'}` +
+      (S.pad !== 'auto' ? ' ※「自動」以外なので判定は使っていません' : '');
     $('pad').hidden = !on;
     document.body.classList.toggle('padmode', on);
     // キーパッド使用中は端末のキーボードを出さない（物理キーボードの入力は効く）
